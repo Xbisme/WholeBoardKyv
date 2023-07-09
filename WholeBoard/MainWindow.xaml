@@ -1,0 +1,291 @@
+﻿<Window x:Class="WholeBoard.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:WholeBoard"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="800" Width="1450">
+    <Window.Resources>
+        <ResourceDictionary Source="StyleResources.xaml"></ResourceDictionary>
+    </Window.Resources>
+    <Grid Background="White">
+        <Grid.RowDefinitions>
+            <RowDefinition></RowDefinition>
+            <RowDefinition></RowDefinition>
+            <RowDefinition></RowDefinition>
+            <RowDefinition></RowDefinition>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition ></ColumnDefinition>
+            <ColumnDefinition ></ColumnDefinition>
+            <ColumnDefinition ></ColumnDefinition>
+        </Grid.ColumnDefinitions>
+
+        <WrapPanel Grid.RowSpan="4" 
+                    Grid.Column="0" 
+                    Orientation="Horizontal"
+                    >
+
+            <TextBlock
+                Text="Path"
+                Margin="20 30 20 30"
+                Style="{StaticResource ResourceKey=TextBlockStyle}"
+             />
+
+            <Border 
+                Width="300"  
+                Height="40"
+                Margin="0 20 0 0"
+                VerticalAlignment="Top"
+                Style="{StaticResource ResourceKey=BorderStyle}"
+                Padding="10">
+
+                <TextBlock 
+                    x:Name="selectPath"
+                    Style="{StaticResource ResourceKey=TextBlockStyle}"/>
+
+            </Border>
+
+            <Button 
+                Click="Load_Click" 
+                Height="40"
+                Width="80"
+                Content="Load"
+                Margin="20 10 0 10"
+                Padding="20"
+                BorderBrush="Black"
+                Style="{StaticResource ResourceKey=RadiusButtonStyle}"/>
+
+            <TextBlock
+                Text="Info"
+                Margin="20 30 20 30"
+                Style="{StaticResource ResourceKey=TextBlockStyle}"/>
+
+            <Border 
+                Width="400"
+                Height="100"
+                Padding="10"
+                Style="{StaticResource ResourceKey=BorderStyle}">
+
+                <StackPanel Orientation="Vertical">
+                    <TextBlock 
+                        Margin="10 0 10 5"
+                        x:Name="totalImage"
+                        Text="Total Image: "
+                        Style="{StaticResource ResourceKey=TextBlockStyle}"/>
+
+                    <TextBlock 
+                        Margin="10 0 10 5"
+                        x:Name="RGB"
+                        Text="RGB: "
+                        Style="{StaticResource ResourceKey=TextBlockStyle}"/>
+
+                    <TextBlock 
+                        Margin="10 0 10 10"
+                        x:Name="Gray"
+                        Text="Gray: "
+                        Style="{StaticResource ResourceKey=TextBlockStyle}"/>
+
+                </StackPanel>
+            </Border>
+
+            <TextBlock
+                   Text="List"
+                   Margin="20 30 24 30"
+                   Style="{StaticResource ResourceKey=TextBlockStyle}"/>
+
+            <Border Width="400"
+                    Height="550"
+                    Style="{StaticResource ResourceKey=BorderStyle}"
+                    Margin="0 20 0 0"
+                    Padding="10">
+                <ScrollViewer >
+                    <ItemsControl x:Name="imageItems">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Image 
+                                    Source="{Binding}" 
+                                    Margin="5" 
+                                    Width="100" 
+                                    Height="100"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Border>
+        </WrapPanel>
+        <Border 
+            Grid.RowSpan="1" 
+            Grid.ColumnSpan="2" 
+            Grid.Column="1"
+            Padding="10"
+            Style="{StaticResource ResourceKey=BorderStyle}" Margin="24,19,18,24">
+            <StackPanel 
+                Orientation="Vertical"
+                Margin="10,0,10,-9">
+                <WrapPanel 
+                    Orientation="Horizontal">
+                    <TextBlock  
+                        Text="Output FileName:"
+                        Margin="0 0 60 0"
+                        Style="{StaticResource ResourceKey=TextBlockStyle}"/>
+                    <ComboBox 
+                        Height="20" Width="200"       
+                        ItemsSource="{Binding Items}" 
+                        DisplayMemberPath="Name" 
+                        VerticalAlignment="Top" 
+                        SelectedIndex="0"
+                        />
+                    <TextBlock  
+                        Text="* If there is no barcode, it is replaced by Date Time."
+                        FontStyle="Italic"
+                        FontSize="15"
+                        FontFamily="Roboto"
+                        Margin="30 0 0 0"
+                        />
+                </WrapPanel>
+                <WrapPanel
+                    Margin="0 30 0 0"
+                    Orientation="Horizontal">
+                    <TextBlock  
+                        Text="Board Scale (20 ~ 100):"
+                        Style="{StaticResource ResourceKey=TextBlockStyle}"
+                        Margin="0 0 22 0"/>
+                    <TextBox
+                        x:Name="scale_box"
+                        TextChanged="scale_box_TextChanged"
+                        Width="30" 
+                        Height="20"
+                        VerticalAlignment="Top" 
+                        
+                        />
+                    <StackPanel VerticalAlignment="Top">
+                        <Button Width="20" Height="10"
+                                Click="Up_Size">
+                            <Image Source="/Image/Icon/up.png" 
+                                   Width="20"
+                                   Height="10"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"
+                                   Stretch="Uniform"
+                                   />
+                        </Button>
+                        <Button Width="20" Height="10"
+                                Click="Down_Size">
+                            <Image Source="/Image/Icon/down.png" 
+                                   Width="20"
+                                   Height="10"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"
+                                   Stretch="Uniform"/>
+                        </Button>
+                    </StackPanel>
+                    <TextBlock  
+                        Text="%"
+                        Style="{StaticResource ResourceKey=TextBlockStyle}"/>
+                    <Button 
+                        Margin="330 0 0 0"
+                        Click="Execute_Click" 
+                        Height="40"
+                        Width="80"
+                        Content="Execute"
+                        BorderBrush="Black"
+                        Style="{StaticResource ResourceKey=RadiusButtonStyle}"/>
+                </WrapPanel>
+                <WrapPanel 
+                    Margin="0 15 30 0"
+                    Orientation="Horizontal">
+                    <TextBlock  
+                        Text="Image Quality (60 ~ 80):"
+                        Style="{StaticResource ResourceKey=TextBlockStyle}"
+                        Margin="0 0 5 0" Height="30"/>
+                    <TextBox 
+                        VerticalAlignment="Top"
+                        Width="30" Height="20"/>
+                    <StackPanel VerticalAlignment="Top">
+                        <Button Width="20" Height="10">
+                            <Image Source="/Image/Icon/up.png" 
+                                   Width="20"
+                                   Height="10"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"
+                                   Stretch="Uniform"/>
+                        </Button>
+                        <Button Width="20" Height="10">
+                            <Image Source="/Image/Icon/down.png" 
+                                   Width="20"
+                                   Height="10"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"
+                                   Stretch="Uniform"/>
+                        </Button>
+                    </StackPanel>
+                </WrapPanel>
+            </StackPanel>
+
+        </Border>
+        <Border 
+            Grid.ColumnSpan="2"
+            Grid.RowSpan="2"
+            Grid.Column="1"
+            Grid.Row="1"
+            Margin="20 0 18 0"
+            Style="{StaticResource ResourceKey=BorderStyle}">
+            <Image
+                Name="img" 
+                Stretch="Uniform"
+                
+            />
+        </Border>
+        <Border 
+            Grid.Column="1"
+            Grid.Row="3"
+            Grid.ColumnSpan="2"
+            Margin="20 20 18 30"
+            Style="{StaticResource ResourceKey=BorderStyle}">
+            <WrapPanel Orientation="Horizontal">
+                <StackPanel Orientation="Vertical">
+                    <TextBlock 
+                        Margin="20 10 0 0"
+                        Text="Wholeboard Histogram"
+                        Style="{StaticResource ResourceKey=TextBlockStyle}"/>
+                    <WrapPanel
+                        Orientation="Horizontal"
+                        Margin="100 10 0 0">
+                        <Button 
+                            Width="40"
+                            Background="White"
+                            Margin="0 0 30 0">
+                            Strech
+                        </Button>
+                        <Button 
+                            Width="40"
+                            Background="White">
+                            Shrink
+                        </Button>
+                    </WrapPanel>
+                    <WrapPanel
+                        Orientation="Horizontal"
+                        Margin="50 30 0 0">
+                        <TextBlock Text="Min"/>
+                        <TextBox 
+                            Width="80"
+                            Background="White"
+                            Margin="10 0 30 0"/>
+                        <TextBlock Text="Max"/>
+                        <TextBox 
+                            Width="80"
+                            Background="White"
+                                Margin="10 0 0 0"/>
+                    </WrapPanel>
+                </StackPanel>
+            </WrapPanel>
+        </Border>
+    </Grid>
+</Window>
