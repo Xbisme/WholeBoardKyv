@@ -3,11 +3,10 @@ using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Windows;
-using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
@@ -21,17 +20,18 @@ namespace WholeBoard
         private SURF surf;
         private Bitmap originalImage;
         private List<SURF.FeaturePoint> features;
+        private double[,] dog;
         public ObservableCollection<Item> Items { get; set; }
         public MainWindow()
         {
 
-            InitializeComponent();
             surf = new SURF();
+            InitializeComponent();
         }
 
         public class Item
         {
-            public string? Name { get; set; }
+            public string Name { get; set; }
         }
         private void Load_Click(object sender, RoutedEventArgs e)
         {
@@ -39,7 +39,7 @@ namespace WholeBoard
             openFileDialog.ValidateNames = false;
             openFileDialog.CheckFileExists = false;
             openFileDialog.CheckPathExists = true;
-            String first_totalImage = "Total Image: ";
+            string first_totalImage = "Total Image: ";
             if (openFileDialog.ShowDialog() == true)
             {
                 string selectedPath = Path.GetDirectoryName(openFileDialog.FileName);
@@ -57,7 +57,7 @@ namespace WholeBoard
 
 
             //Load_Image();
-            Image_Loaded( sender,  e);
+            Image_Loaded();
             DateTime currentDateTime = DateTime.Now;
             string formattedDateTime = currentDateTime.ToString("yyyy-MM-dd HH:mm:ss");
 
@@ -115,24 +115,25 @@ namespace WholeBoard
         {
             AdjustSize(false);
         }
-        private void Image_Loaded(object sender, RoutedEventArgs e)
+        private void Image_Loaded()
         {
         
-            
-            string imagePath = "C:\\Users\\acer\\Pictures\\Nitro\\2.jpg";
+            string imagePath = "D:\\KYV\\WholeBoard\\WholeBoard\\Image\\Test\\example.jpg";
 
             // Load the image
             originalImage = new Bitmap(imagePath);
 
             // Detect features
             features = surf.DetectFeatures(originalImage);
+            //Debug.WriteLine("Features: ");
+            //features.ForEach(feature => { Debug.WriteLine(feature); });
 
-            //// Draw the features on the image
-            //DrawFeaturesOnImage();
+            // Draw the features on the image
+            DrawFeaturesOnImage(features);
 
         }
 
-        private void DrawFeaturesOnImage()
+        private void DrawFeaturesOnImage(List<SURF.FeaturePoint>  features)
         {
             // Create a DrawingVisual object 
             DrawingVisual drawingVisual = new DrawingVisual();
