@@ -6,16 +6,23 @@
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
     <BaseOutputPath></BaseOutputPath>
+    <Platforms>AnyCPU;x64;x86</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
     <None Remove="Image\Icon\down.png" />
     <None Remove="Image\Icon\up.png" />
     <None Remove="Image\Test\example.jpg" />
+    <None Remove="Image\Test\Image1.jpg" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Drawing.Common" Version="7.0.0" />
+    <PackageReference Include="BaseLibS" Version="1.6.4.382" />
+    <PackageReference Include="OpenCvSharp4" Version="4.8.0.20230708" />
+    <PackageReference Include="OpenCvSharp4.Extensions" Version="4.8.0.20230708" />
+    <PackageReference Include="OpenCvSharp4.runtime.win" Version="4.8.0.20230708" />
+    <PackageReference Include="OpenCvSharp4.Windows" Version="4.8.0.20230708" />
+    <PackageReference Include="OpenCvSharp4.WpfExtensions" Version="4.8.0.20230708" />
   </ItemGroup>
 
   <ItemGroup>
@@ -23,7 +30,39 @@
     <Resource Include="Image\Icon\up.png">
       <CopyToOutputDirectory></CopyToOutputDirectory>
     </Resource>
-    <Resource Include="Image\Test\example.jpg" />
+    <Resource Include="Image\Icon\Image1.jpg" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Image\Result\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\.editorconfig" Link=".editorconfig" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Properties\Resources.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Image\Test\1.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Image\Test\2.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
