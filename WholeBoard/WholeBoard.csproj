@@ -30,7 +30,6 @@
     <Resource Include="Image\Icon\up.png">
       <CopyToOutputDirectory></CopyToOutputDirectory>
     </Resource>
-    <Resource Include="Image\Icon\Image1.jpg" />
   </ItemGroup>
 
   <ItemGroup>

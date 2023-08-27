@@ -6,7 +6,6 @@ using OpenCvSharp.WpfExtensions;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -17,9 +16,6 @@ using static WholeBoard.SURF;
 
 namespace WholeBoard
 {
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml
-    /// </summary>
     public partial class MainWindow : System.Windows.Window
     {
         private SURF surf;
@@ -85,16 +81,10 @@ namespace WholeBoard
                 features2 = Image_Loaded(files[0+1]);
             //}
 
-            List<DMatch> matches = SURF.MatchFeatures(features1, features2);
-
-            List<DMatch> inliers = RANSAC.RansacFilterMatches(features1, features2, matches);
-
-            Mat outputImage = DrawMatchesOnImage(new Bitmap(files[0]), new Bitmap(files[0 + 1]), features1, features2, inliers, 1);
-            Bitmap bitmapSource = BitmapConverter.ToBitmap(outputImage);
-            bitmapSource.Save("D:\\KYV\\WholeBoard\\WholeBoard\\Image\\Result\\result1.jpg");
+            List<DMatch> matches = MatchFeatures(features1, features2);
             StitchingImage stitchingImage = new StitchingImage();
 
-            Bitmap newImage = stitchingImage.WrapImage(new Bitmap(files[0]), new Bitmap(files[0 + 1]), inliers, features1, features2);
+            Bitmap newImage = stitchingImage.WrapImage(new Bitmap(files[0]), new Bitmap(files[0 + 1]), matches, features1, features2);
             newImage.Save("D:\\KYV\\WholeBoard\\WholeBoard\\Image\\Result\\ghep.jpg");
 
             DateTime currentDateTime = DateTime.Now;
@@ -157,48 +147,23 @@ namespace WholeBoard
         {
             // Load the image
             Bitmap originalImage = new Bitmap(imagePath);
+
             // Detect features
             List<FeaturePoint>features = surf.DetectFeatures(originalImage);
+
             // Draw the features on the image
-
             BitmapSource bitmapSource = DrawFeaturesOnImage(originalImage, features);
-            ////img.Source = bitmapSource;
 
+            //Convert Image to Grayscale
             Bitmap bitmap = surf.GrayScale(originalImage);
+
+            //Save grayscale image
             bitmap.Save("D:\\KYV\\WholeBoard\\WholeBoard\\Image\\Result\\" + Path.GetFileName(imagePath));
             string savePath = "D:\\KYV\\WholeBoard\\WholeBoard\\Image\\Result\\r" + Path.GetFileName(imagePath);
             SaveClipboardImageToFile(bitmapSource, savePath);
             return features;
         }
-        public Mat DrawMatchesOnImage(Bitmap image1, Bitmap image2, List<FeaturePoint> keypoints1, List<FeaturePoint> keypoints2, List<DMatch> matches, int matchIndex)
-        {
-            Mat cvImage1 = BitmapToMat(image1);
-            Mat cvImage2 = BitmapToMat(image2);
 
-            KeyPoint[] keyPointsArray1 = keypoints1.ConvertAll(kp => new KeyPoint(new Point2f(kp.X, kp.Y), 1f)).ToArray();
-            KeyPoint[] keyPointsArray2 = keypoints2.ConvertAll(kp => new KeyPoint(new Point2f(kp.X, kp.Y), 1f)).ToArray();
-
-            Mat outputImage = new Mat();
-
-            if (matchIndex >= 0 && matchIndex < matches.Count)
-            {
-                FeaturePoint feature1 = keypoints1[matches[matchIndex].QueryIdx];
-                FeaturePoint feature2 = keypoints2[matches[matchIndex].TrainIdx];
-
-                Cv2.DrawMatches(cvImage1, keyPointsArray1, cvImage2, keyPointsArray2, new List<DMatch> { matches.ElementAt(matchIndex) }, outputImage,
-                    new Scalar(0, 255, 255), new Scalar(255, 0, 0), null, DrawMatchesFlags.NotDrawSinglePoints);
-                //Scalar color = new Scalar(0, 0, 255); // Red color
-
-                //// Vẽ điểm keypoint của match cụ thể
-                //Cv2.Circle(outputImage, new Point((int)feature1.X, (int)feature1.Y), 5, color, -1);
-                //Cv2.Circle(outputImage, new Point((int)feature2.X + cvImage1.Cols, (int)feature2.Y), 5, color, -1);
-
-                //// Vẽ đường nối hai điểm keypoint
-                //Cv2.Line(outputImage, new Point((int)feature1.X, (int)feature1.Y), new Point((int)feature2.X + cvImage1.Cols, (int)feature2.Y), color, 2);
-            }
-
-            return outputImage;
-        }
 
 
         private BitmapSource DrawFeaturesOnImage(Bitmap originalImage,List<SURF.FeaturePoint> features)
@@ -220,7 +185,7 @@ namespace WholeBoard
                 drawingContext.DrawImage(bitmapSource, new System.Windows.Rect(0, 0, bitmapSource.PixelWidth, bitmapSource.PixelHeight));
 
                 // Draw circles or markers at the feature coordinates
-                double radius = 1 ; // Adjust the radius as needed
+                double radius = 1 ;
 
                 foreach (SURF.FeaturePoint feature in features)
                 {
@@ -238,11 +203,11 @@ namespace WholeBoard
                 originalImage.Width, originalImage.Height, 96, 96, PixelFormats.Pbgra32);
             renderBitmap.Render(drawingVisual);
 
-            // Assign the BitmapSource to the Image control
-            //img.Source = renderBitmap;
             return renderBitmap;
         }
-        public static void SaveClipboardImageToFile(BitmapSource bitmapSource,string filePath)
+
+        //Save image
+        public void SaveClipboardImageToFile(BitmapSource bitmapSource,string filePath)
         {
             BitmapEncoder encoder = new PngBitmapEncoder();
             encoder.Frames.Add(BitmapFrame.Create(bitmapSource));
@@ -251,14 +216,6 @@ namespace WholeBoard
             {
                 encoder.Save(fileStream);
             }
-        }
-        public  BitmapSource WrapImage(Mat srcImg, Mat homography, System.Windows.Size outputSize)
-        {
-            Mat wrappedImg = new Mat();
-            Cv2.WarpPerspective(srcImg, wrappedImg, homography, new OpenCvSharp.Size(outputSize.Width, outputSize.Height));
-
-            // Convert wrappedImg to BitmapSource
-            return BitmapSourceConverter.ToBitmapSource(wrappedImg);
         }
     }
 }

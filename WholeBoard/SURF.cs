@@ -1,17 +1,15 @@
-﻿
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using Color = System.Drawing.Color;
 using OpenCvSharp;
 using System.Linq;
 using System.Diagnostics;
 using System.IO;
 using OpenCvSharp.Flann;
+using OpenCvSharp.Extensions;
 
 namespace WholeBoard
 {
@@ -21,24 +19,19 @@ namespace WholeBoard
         private static readonly string LogFilePath = "log.txt";
         public List<FeaturePoint> DetectFeatures(Bitmap image)
         {
-            ////Convert to grayscale
-            //Bitmap bitmap = GrayScale(image);
-
-            //List<FeaturePoint> interestPoints = FindInterestPoints(image);
-
-            //this new
+            //Caculate hessianResponses
             double[,] hessianResponses = ComputeHessianResponses(image);
-            List<FeaturePoint> interestPoints = ApplyNonMaximumSuppression(hessianResponses);
-            
 
+            //Create features point
+            List<FeaturePoint> interestPoints = ApplyNonMaximumSuppression(hessianResponses);
 
             // Perform SURF descriptor extraction for each interest point
+            List<FeaturePoint> features = new List<FeaturePoint>();
+            features = ComputeSURFDescriptors(image, interestPoints);
 
-            ComputeSURFDescriptors(image, interestPoints);
-            
 
             // Return the list of feature points
-            return interestPoints;
+            return features;
 
         }
         // Gray Scale
@@ -65,58 +58,33 @@ namespace WholeBoard
             return newbitmap;
         }
 
-        public BitmapSource ConvertBitmapToBitmapSource(Bitmap bitmap)
-
-        {
-            var bitmapData = bitmap.LockBits(new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height),
-                                            System.Drawing.Imaging.ImageLockMode.ReadOnly, bitmap.PixelFormat);
-
-            var bitmapSource = BitmapSource.Create(bitmapData.Width, bitmapData.Height,
-                                                   bitmap.HorizontalResolution, bitmap.VerticalResolution,
-                                                   PixelFormats.Gray16, null,
-                                                   bitmapData.Scan0, bitmapData.Stride * bitmapData.Height, bitmapData.Stride);
-
-            bitmap.UnlockBits(bitmapData);
-
-            return bitmapSource;
-        }
-
-        private List<FeaturePoint> FindInterestPoints(Bitmap image)
-        {
-            ////Convert to grayscale
-            //Bitmap bitmap = GrayScale(image);
-            // Compute the Difference of Gaussians
-            // Assign unique IDs to the feature points
-            int currentId = 0;
-            double[,] dog = ComputeDifferenceOfGaussians(image);
-
-            // Apply non-maximum suppression to find local extrema
-            List<FeaturePoint> interestPoints = ApplyNonMaximumSuppression(dog);
-            foreach (FeaturePoint point in interestPoints)
-            {
-                point.Id = currentId;
-                currentId++;
-            }
-            return interestPoints;
-        }
-
         private double[,] ComputeHessianResponses(Bitmap image)
         {
+            int kernelSize = 5;
+            double[,] smoothedImage = ApplyLowPassFilter(image, kernelSize);
             Bitmap grayscaleImage = GrayScale(image);
-            int width = grayscaleImage.Width;
-            int height = grayscaleImage.Height;
+            int width = smoothedImage.GetLength(0);
+            int height = smoothedImage.GetLength(1);
             double[,] hessianResponses = new double[width, height];
+
+            Mat grayMat = BitmapConverter.ToMat(grayscaleImage);
 
             for (int y = 1; y < height - 1; y++)
             {
                 for (int x = 1; x < width - 1; x++)
                 {
-                    double dx = grayscaleImage.GetPixel(x + 1, y).R - grayscaleImage.GetPixel(x - 1, y).R;
-                    double dy = grayscaleImage.GetPixel(x, y + 1).R - grayscaleImage.GetPixel(x, y - 1).R;
-                    double dxx = grayscaleImage.GetPixel(x + 1, y).R - 2 * grayscaleImage.GetPixel(x, y).R + grayscaleImage.GetPixel(x - 1, y).R;
-                    double dyy = grayscaleImage.GetPixel(x, y + 1).R - 2 * grayscaleImage.GetPixel(x, y).R + grayscaleImage.GetPixel(x, y - 1).R;
-                    double dxy = (grayscaleImage.GetPixel(x + 1, y + 1).R - grayscaleImage.GetPixel(x - 1, y + 1).R -
-                                  grayscaleImage.GetPixel(x + 1, y - 1).R + grayscaleImage.GetPixel(x - 1, y - 1).R) / 4.0;
+                    if (x < 0 || x >= width || y < 0 || y >= height)
+                    {
+
+                        continue;
+                    }
+
+                    double dx = grayMat.At<byte>(y, x + 1) - grayMat.At<byte>(y, x - 1);
+                    double dy = grayMat.At<byte>(y + 1, x) - grayMat.At<byte>(y - 1, x);
+                    double dxx = grayMat.At<byte>(y, x + 1) - 2 * grayMat.At<byte>(y, x) + grayMat.At<byte>(y, x - 1);
+                    double dyy = grayMat.At<byte>(y + 1, x) - 2 * grayMat.At<byte>(y, x) + grayMat.At<byte>(y - 1, x);
+                    double dxy = (grayMat.At<byte>(y + 1, x + 1) - grayMat.At<byte>(y - 1, x + 1) -
+                                  grayMat.At<byte>(y + 1, x - 1) + grayMat.At<byte>(y - 1, x - 1)) / 4.0;
 
                     // Compute the determinant of the Hessian matrix for the point (x, y)
                     double determinant = dxx * dyy - dxy * dxy;
@@ -125,20 +93,22 @@ namespace WholeBoard
                     double trace = dxx + dyy;
 
                     // Compute the response value using the Harris corner detection formula (k is a constant, usually between 0.04 and 0.06)
-                    double k = 0.04;
+                    double k = 0.05;
+
                     hessianResponses[x, y] = determinant - k * Math.Pow(trace, 2);
                 }
             }
-
             return hessianResponses;
         }
 
-        private List<FeaturePoint> ApplyNonMaximumSuppression(double[,] hessianResponses, double threshold = 0.01)
+
+
+        private List<FeaturePoint> ApplyNonMaximumSuppression(double[,] hessianResponses, double threshold = 0.05)
         {
             List<FeaturePoint> interestPoints = new List<FeaturePoint>();
             int width = hessianResponses.GetLength(0);
             int height = hessianResponses.GetLength(1);
-
+            int idCount = 0;
             for (int y = 1; y < height - 1; y++)
             {
                 for (int x = 1; x < width - 1; x++)
@@ -149,13 +119,21 @@ namespace WholeBoard
                     {
                         if (IsLocalMaximum(hessianResponses, x, y))
                         {
-                            interestPoints.Add(new FeaturePoint { X = x, Y = y, Response = centerValue });
+                            interestPoints.Add(new FeaturePoint { X = x, Y = y, Response = centerValue, Size = CalculateSize(x, y, hessianResponses), Id = idCount });
                         }
                     }
+                    idCount++;
                 }
             }
 
             return interestPoints;
+        }
+
+        private float CalculateSize(int x, int y, double[,] hessianResponses)
+        {
+            float size = (float)Math.Sqrt(hessianResponses[x, y]);
+
+            return size;
         }
 
         private bool IsLocalMaximum(double[,] hessianResponses, int x, int y)
@@ -178,78 +156,32 @@ namespace WholeBoard
 
             return false;
         }
-        private bool IsLocalExtremum(double[,] dog, int x, int y)
+        private double[,] ApplyLowPassFilter(Bitmap image, int kernelSize)
         {
-            double centerValue = dog[x, y];
-
-            // Check if the center value is greater than or equal to ALL neighboring values
-            for (int j = -1; j <= 1; j++)
+            // Create a kernel for low-pass filtering (average kernel)
+            double[,] kernel = new double[kernelSize, kernelSize];
+            for (int i = 0; i < kernelSize; i++)
             {
-                for (int i = -1; i <= 1; i++)
+                for (int j = 0; j < kernelSize; j++)
                 {
-                    if (i == 0 && j == 0) // Skip the center pixel
-                        continue;
-
-                    if (dog[x + i, y + j] >= centerValue)
-                    {
-                        return true; // Not a local extremum
-                    }
+                    kernel[i, j] = 1.0 / (kernelSize * kernelSize); // Normalize the kernel
                 }
             }
 
-            return false; // It's a local extremum
-        }
-
-
-        private double[,] ComputeDifferenceOfGaussians(Bitmap image)
-        {
-            //Convert to grayscale
-            image = GrayScale(image);
-
-            // Define the scales for the LoG kernels
-            double sigma1 = 1;
-            double sigma2 = 2;
-
-            // Compute the LoG filtered images
-            double[,] filtered1 = ApplyLaplacianOfGaussian(image, sigma1);
-            double[,] filtered2 = ApplyLaplacianOfGaussian(image, sigma2);
-
-            // Compute the Difference of Gaussians (DoG)
-            int width = image.Width;
-            int height = image.Height;
-            double[,] dog = new double[width, height];
-
-            for (int y = 0; y < height; y++)
-            {
-                for (int x = 0; x < width; x++)
-                {
-                    dog[x, y] = filtered2[x, y] - filtered1[x, y];
-                }
-            }
-
-            return dog;
-        }
-
-        private double[,] ApplyLaplacianOfGaussian(Bitmap image, double sigma)
-        {
-            int kernelSize = (int)(6 * sigma) + 1; // The size of the LoG kernel should be an odd number
-
-            // Compute the Laplacian of Gaussian (LoG) kernel
-            double[,] kernel = ComputeLaplacianOfGaussianKernel(sigma, kernelSize);
-
-            // Apply LoG filtering to the image
             int width = image.Width;
             int height = image.Height;
             double[,] filteredImage = new double[width, height];
 
-            BitmapData imageData = image.LockBits(new Rectangle(0, 0, width, height), ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            BitmapData imageData = image.LockBits(new Rectangle(0, 0, width, height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
 
             int stride = imageData.Stride;
-            int bytesPerPixel = 4; // Assuming 32bppArgb pixel format (4 bytes per pixel)
+            int bytesPerPixel = 4;
             byte[] pixelData = new byte[stride * height];
             Marshal.Copy(imageData.Scan0, pixelData, 0, pixelData.Length);
 
             image.UnlockBits(imageData);
+
+            int radius = kernelSize / 2;
 
             for (int y = 0; y < height; y++)
             {
@@ -257,9 +189,9 @@ namespace WholeBoard
                 {
                     double sum = 0.0;
 
-                    for (int j = -kernelSize / 2; j <= kernelSize / 2; j++)
+                    for (int j = -radius; j <= radius; j++)
                     {
-                        for (int i = -kernelSize / 2; i <= kernelSize / 2; i++)
+                        for (int i = -radius; i <= radius; i++)
                         {
                             int pixelX = x + i;
                             int pixelY = y + j;
@@ -267,9 +199,9 @@ namespace WholeBoard
                             if (pixelX >= 0 && pixelX < width && pixelY >= 0 && pixelY < height)
                             {
                                 int pixelIndex = (pixelY * stride) + (pixelX * bytesPerPixel);
-                                byte pixelValue = pixelData[pixelIndex]; // Assuming grayscale image (R, G, B channels have the same value)
+                                byte pixelValue = pixelData[pixelIndex];
 
-                                sum += kernel[j + kernelSize / 2, i + kernelSize / 2] * pixelValue;
+                                sum += kernel[j + radius, i + radius] * pixelValue;
                             }
                         }
                     }
@@ -280,77 +212,66 @@ namespace WholeBoard
 
             return filteredImage;
         }
-
-
-        private double[,] ComputeLaplacianOfGaussianKernel(double sigma, int size)
+        private List<FeaturePoint> ComputeSURFDescriptors(Bitmap bitmap, List<FeaturePoint> keypoints)
         {
-            double[,] kernel = new double[size, size];
-
-            int center = size / 2;
-            double sigmaSquared = sigma * sigma;
-
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
-                {
-                    int dx = x - center;
-                    int dy = y - center;
-
-                    double exponent = (dx * dx + dy * dy) / (2 * sigmaSquared);
-                    double value = (1.0 - exponent) * Math.Exp(-exponent) / (Math.PI * sigmaSquared * sigmaSquared);
-                    kernel[x, y] = value;
-                }
-            }
-
-            // Normalize the kernel
-            double sum = kernel.Cast<double>().Sum();
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
-                {
-                    kernel[x, y] /= sum;
-                }
-            }
-
-            return kernel;
-        }
-
-        public void ComputeSURFDescriptors(Bitmap bitmap, List<FeaturePoint> keypoints)
-        {
-            
             Bitmap image = GrayScale(bitmap);
-            Mat cvImage = BitmapToMat(image);
-
-           
-            //if (cvImage.Channels() > 1)
-            //{
-            //    cvImage = cvImage.CvtColor(ColorConversionCodes.BGRA2GRAY);
-            //}
-
-            KeyPoint[] keyPointsArray = keypoints.Select(kp => new KeyPoint(kp.X, kp.Y,1)).ToArray();
-            var surf = OpenCvSharp.XFeatures2D.SURF.Create(100);
+            Mat cvImage = BitmapConverter.ToMat(image);
+            KeyPoint[] keyPointsArray = keypoints.Select(kp => new KeyPoint(kp.X, kp.Y, kp.Size, kp.Angle, (float)kp.Response, kp.Octave, kp.Id)).ToArray();
+            Debug.WriteLine(keyPointsArray.Length);
+            var surf = OpenCvSharp.XFeatures2D.SURF.Create(900);
             Mat descriptors = new Mat();
-            //KeyPoint[] newPoint = surf.Detect(cvImage);
+            ComputeOctaveAndAngle(keyPointsArray, cvImage);
             surf.Compute(cvImage, ref keyPointsArray, descriptors);
 
             for (int i = 0; i < keyPointsArray.Length; i++)
             {
                 keypoints[i].Descriptor = descriptors.Row(i);
+                keypoints[i].Octave = keyPointsArray[i].Octave; // Gán octave cho keypoint
+                keypoints[i].Angle = keyPointsArray[i].Angle;   // Gán angle cho keypoint
+                keypoints[i].Size = keyPointsArray[i].Size;
+                keypoints[i].Id = i;
+            }
+
+            return keypoints;
+        }
+        private void ComputeOctaveAndAngle(KeyPoint[] keyPointsArray, Mat grayscaleImage)
+        {
+            for (int i = 0; i < keyPointsArray.Length; i++)
+            {
+                int x = (int)Math.Round(keyPointsArray[i].Pt.X);
+                int y = (int)Math.Round(keyPointsArray[i].Pt.Y);
+
+                double gradientX = ComputeGradientX(grayscaleImage, x, y);
+                double gradientY = ComputeGradientY(grayscaleImage, x, y);
+
+                keyPointsArray[i].Angle = (float)Math.Atan2(gradientY, gradientX);
+                keyPointsArray[i].Octave = (int)Math.Floor(Math.Log(keyPointsArray[i].Size, 2));
             }
         }
-        public static Mat BitmapToMat(Bitmap bitmap)
+        private double ComputeGradientX(Mat integralImage, int x, int y)
         {
-            Rectangle rect = new Rectangle(0, 0, bitmap.Width, bitmap.Height);
-            BitmapData bmpData = bitmap.LockBits(rect, ImageLockMode.ReadWrite, bitmap.PixelFormat);
+            // Tính gradient x tại vị trí (x, y) thông qua integral image
+            var sum1 = integralImage.At<float>(y - 1, x + 1) - integralImage.At<float>(y - 1, x - 1)
+                       + 2 * integralImage.At<float>(y, x + 1) - 2 * integralImage.At<float>(y, x - 1)
+                       + integralImage.At<float>(y + 1, x + 1) - integralImage.At<float>(y + 1, x - 1);
 
-            Mat mat = new Mat(bitmap.Height, bitmap.Width, MatType.CV_8UC4, bmpData.Scan0);
-
-            bitmap.UnlockBits(bmpData);
-
-            return mat;
+            return sum1;
         }
+
+        private double ComputeGradientY(Mat integralImage, int x, int y)
+        {
+            // Tính gradient y tại vị trí (x, y) thông qua integral image
+            var sum2 = integralImage.At<float>(y + 1, x - 1) - integralImage.At<float>(y - 1, x - 1)
+                       + 2 * integralImage.At<float>(y + 1, x) - 2 * integralImage.At<float>(y - 1, x)
+                       + integralImage.At<float>(y + 1, x + 1) - integralImage.At<float>(y - 1, x + 1);
+
+            return sum2;
+        }
+
+
+
         // Matching Features
-        public static List<DMatch> MatchFeatures(List<FeaturePoint> features1, List<FeaturePoint> features2, double maxDistanceThreshold = 10)
+        public static List<DMatch> MatchFeatures(List<FeaturePoint> features1, List<FeaturePoint> features2, double maxDistanceThreshold = 0.01)
         {
             Logger.LogMethodCall(nameof(MatchFeatures));
             List<DMatch> goodMatches = new List<DMatch>();
@@ -373,8 +294,8 @@ namespace WholeBoard
             }
 
             // Set FLANN parameters
-            var flannIndexParams = new KDTreeIndexParams();
-            var flannSearchParams = new SearchParams {};
+            IndexParams flannIndexParams = new KDTreeIndexParams();
+            SearchParams flannSearchParams = new SearchParams(checks: 50);
 
             // Create FLANN matcher
             using (var matcher = new FlannBasedMatcher(flannIndexParams, flannSearchParams))
@@ -385,6 +306,7 @@ namespace WholeBoard
                 // Apply the distance threshold to filter out poor matches
                 foreach (var match in matches)
                 {
+                    //Debug.WriteLine(match.Distance);
                     if (match.Distance < maxDistanceThreshold)
                     {
                         goodMatches.Add(match);
@@ -396,20 +318,6 @@ namespace WholeBoard
             Logger.LogMethodEnd(nameof(MatchFeatures));
             return goodMatches;
         }
-        private static double CalculateDescriptorDistance(Mat descriptor1, Mat descriptor2)
-        {
-            // Assuming both descriptors are of type CV_32F
-            double distanceSquared = 0.0;
-
-            for (int i = 0; i < descriptor1.Rows; i++)
-            {
-                double diff = descriptor1.At<float>(i) - descriptor2.At<float>(i);
-                distanceSquared += diff * diff;
-            }
-
-            return Math.Sqrt(distanceSquared);
-        }
-
 
         private void LogMessage(string message)
         {
@@ -434,6 +342,9 @@ namespace WholeBoard
             public int Id { get; set; }
             public float X { get; set; }
             public float Y { get; set; }
+            public float Size { get; set; } = 0;
+            public float Angle { get; set; } = 0;
+            public int Octave { get; set; } = 0;
             public Mat Descriptor { get; set; }
             public double Response { get; set; }
             //public double TransformedX { get; set; }
